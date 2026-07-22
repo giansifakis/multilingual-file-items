@@ -1,0 +1,113 @@
+.mfi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    width: 100%;
+}
+
+.mfi-item {
+    min-width: 0;
+    margin: 0;
+}
+
+.mfi-item__link {
+    display: flex;
+    align-items: center;
+    gap: clamp(14px, 2vw, 22px);
+    height: 100%;
+    padding: clamp(12px, 1.6vw, 18px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    color: inherit;
+    background: #fff;
+    text-decoration: none;
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.mfi-item__link:hover,
+.mfi-item__link:focus-visible {
+    color: inherit;
+    border-color: rgba(0, 0, 0, 0.22);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    text-decoration: none;
+}
+
+.mfi-item__link:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+}
+
+.mfi-item__image {
+    position: relative;
+    display: block;
+    flex: 0 0 clamp(82px, 9vw, 112px);
+    width: clamp(82px, 9vw, 112px);
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #f1f2f4;
+}
+
+.mfi-item__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mfi-item__title {
+    min-width: 0;
+    font: inherit;
+    font-size: clamp(16px, 1.4vw, 20px);
+    font-weight: 700;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.mfi-item__fallback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    color: #32373c;
+    text-align: center;
+}
+
+.mfi-item__fallback .dashicons {
+    width: 32px;
+    height: 32px;
+    font-size: 32px;
+}
+
+.mfi-item__extension {
+    max-width: 100%;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+    .mfi-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .mfi-item__image {
+        flex-basis: 88px;
+        width: 88px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mfi-item__link {
+        transition: none;
+    }
+}
