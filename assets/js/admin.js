@@ -3,18 +3,35 @@
 
     $(function () {
         var frame;
-        var $picker = $('.mfi-file-picker');
+        var $destinationPicker = $('[data-mfi-destination-picker]');
+        var $filePicker = $('.mfi-file-picker');
 
-        if (!$picker.length || typeof wp === 'undefined' || !wp.media) {
+        if (!$destinationPicker.length) {
+            return;
+        }
+
+        function updateDestinationPanels() {
+            var selectedType = $destinationPicker.find('input[name="mfi_source_type"]:checked').val() || 'file';
+
+            $destinationPicker.find('[data-mfi-source-panel]').each(function () {
+                var $panel = $(this);
+                $panel.prop('hidden', $panel.data('mfi-source-panel') !== selectedType);
+            });
+        }
+
+        $destinationPicker.on('change', 'input[name="mfi_source_type"]', updateDestinationPanels);
+        updateDestinationPanels();
+
+        if (!$filePicker.length || typeof wp === 'undefined' || !wp.media) {
             return;
         }
 
         var $input = $('#mfi-file-attachment-id');
-        var $selection = $picker.find('.mfi-file-picker__selection');
-        var $name = $picker.find('.mfi-file-picker__name');
-        var $url = $picker.find('.mfi-file-picker__url');
-        var $select = $picker.find('.mfi-select-file');
-        var $remove = $picker.find('.mfi-remove-file');
+        var $selection = $filePicker.find('.mfi-file-picker__selection');
+        var $name = $filePicker.find('.mfi-file-picker__name');
+        var $url = $filePicker.find('.mfi-file-picker__url');
+        var $select = $filePicker.find('.mfi-select-file');
+        var $remove = $filePicker.find('.mfi-remove-file');
 
         $select.on('click', function (event) {
             event.preventDefault();

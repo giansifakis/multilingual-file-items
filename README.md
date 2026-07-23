@@ -1,19 +1,26 @@
 # Multilingual File Items
 
-A lightweight WordPress plugin for creating downloadable file items and displaying them in a responsive, language-aware shortcode grid.
+A lightweight WordPress plugin for creating file or link items and displaying them in a responsive, language-aware shortcode grid.
 
-Each item includes a title, a square image, and a file from the WordPress Media Library. Items appear two per row on desktop and one per row on mobile. Clicking an item opens the associated file in a new browser tab.
+Each item includes a title, a square image, and one selected destination:
+
+- A file uploaded to or selected from the WordPress Media Library
+- A manually entered internal or external URL
+
+Items appear two per row on desktop and one per row on mobile. Clicking an item opens its destination in a new browser tab.
 
 ## Features
 
 - Dedicated **File Items** custom post type
-- Upload or select PDF, DOC, DOCX, images, spreadsheets, presentations, ZIP files, and other WordPress-supported media
+- Choice between **Uploaded file** and **Custom link** for every item
+- Support for PDFs, Word documents, images, spreadsheets, presentations, ZIP files, and other WordPress-supported media
+- Support for webpages, Google Drive links, forms, videos, cloud files, and other HTTP/HTTPS URLs
 - Square featured image for every item
-- Automatic image-file thumbnail fallback
-- File-extension fallback for non-image files without a featured image
+- Automatic thumbnail fallback when the uploaded file or custom URL points directly to an image
+- File-extension or link-icon fallback when no square image is selected
 - Responsive two-column grid
 - One-column mobile layout
-- Files open in a new tab
+- Destinations open in a new tab
 - Manual item ordering
 - Divi-compatible shortcode
 - Polylang custom post type integration
@@ -27,7 +34,7 @@ Each item includes a title, a square image, and a file from the WordPress Media 
 - PHP 7.4 or newer
 - Polylang or Polylang Pro for multilingual functionality
 
-Polylang is optional. Without it, the plugin works as a standard single-language file grid.
+Polylang is optional. Without it, the plugin works as a standard single-language item grid.
 
 ## Installation
 
@@ -37,15 +44,21 @@ Polylang is optional. Without it, the plugin works as a standard single-language
 4. Activate **Multilingual File Items**.
 5. A new **File Items** section will appear in the WordPress dashboard.
 
-## Creating a File Item
+Existing items created with version 1.0.0 remain compatible and continue using their uploaded files.
+
+## Creating an Item
 
 1. Open **File Items → Add New**.
 2. Enter the item title.
 3. Use **Square Item Image** to upload or select the square image.
-4. In the **Item File** panel, select or upload the file that should open when the item is clicked.
-5. Optionally set an **Order** number in the **Page Attributes** panel. Lower values appear first.
-6. Assign the appropriate language through Polylang when applicable.
+4. In **Item Destination**, select one of the following:
+   - **Uploaded file**: select or upload a file through the WordPress Media Library.
+   - **Custom link**: enter a complete URL beginning with `http://` or `https://`.
+5. Optionally set an **Order** number in **Page Attributes**. Lower values appear first.
+6. Assign the appropriate Polylang language when applicable.
 7. Publish the item.
+
+The plugin retains both the uploaded-file selection and custom URL when you switch destination types. Only the currently selected destination type is displayed on the frontend.
 
 ## Basic Shortcode
 
@@ -125,8 +138,9 @@ For each language:
 1. Create the first File Item.
 2. Assign its language using the Polylang language panel.
 3. Use the Polylang **+** translation control to create the equivalent item in another language.
-4. Add the translated title, translated file, and corresponding image.
-5. Publish each translation.
+4. Add the translated title and select the appropriate uploaded file or custom link.
+5. Add the corresponding square image.
+6. Publish each translation.
 
 The standard shortcode:
 
@@ -134,7 +148,7 @@ The standard shortcode:
 [file_items]
 ```
 
-automatically displays only the items assigned to the current page language.
+automatically displays only items assigned to the current page language.
 
 If the language controls do not appear, open **Languages → Settings → Custom post types and Taxonomies** and confirm that **File Items** is enabled.
 
@@ -146,12 +160,6 @@ The shortcode can be placed inside:
 - A Divi **Code Module**
 - The standard WordPress Shortcode block
 
-Example:
-
-```text
-[file_items]
-```
-
 The plugin supplies its own responsive grid and does not require a Divi row with two columns.
 
 ## Image Fallback Behaviour
@@ -160,13 +168,29 @@ The frontend selects the item image in this order:
 
 1. The File Item's square featured image
 2. The uploaded file itself, when it is an image
-3. A generic document icon showing the file extension
+3. The custom URL itself, when it points directly to a supported image extension
+4. A generic document or link icon with the detected extension
 
-## File Upload Support
+For consistent presentation, using a dedicated square featured image is recommended.
+
+## Destination Support
+
+### Uploaded file
 
 The media selector displays file types allowed by the WordPress installation. WordPress, installed security plugins, and server configuration may restrict some extensions.
 
-The plugin stores the WordPress attachment ID rather than duplicating the file or saving an external URL.
+The plugin stores the WordPress attachment ID and uses the current attachment URL on the frontend.
+
+### Custom link
+
+Custom links must use `http://` or `https://`. They may point to:
+
+- A normal webpage
+- Google Drive, Dropbox, OneDrive, or another cloud service
+- A form or questionnaire
+- A video or media resource
+- A file hosted outside WordPress
+- Another page on the same website
 
 ## Styling
 
@@ -200,9 +224,10 @@ Add custom overrides to the Divi Theme Options custom CSS field, the child theme
 ## Security and Performance
 
 - File attachment IDs are validated before saving.
+- Custom links are sanitized and restricted to HTTP and HTTPS protocols.
 - Administrative changes use WordPress nonces and capability checks.
 - Frontend URLs and output are escaped.
-- External file links use `noopener noreferrer`.
+- Links use `noopener noreferrer` and open in a new tab.
 - Frontend CSS is loaded only when the shortcode returns items.
 - The frontend query disables unnecessary pagination and term-cache work.
 
@@ -223,6 +248,13 @@ multilingual-file-items/
 
 ## Changelog
 
+### 1.1.0
+
+- Added a destination type selector to every item
+- Added support for manually entered internal and external URLs
+- Added link-specific admin display and frontend fallback icon
+- Preserved compatibility with existing uploaded-file items
+
 ### 1.0.0
 
 - Initial release
@@ -233,9 +265,6 @@ multilingual-file-items/
 - Added manual ordering
 - Added featured image and file-type fallbacks
 
-## License
-
-This plugin is licensed under the GNU General Public License v2.0 or later.
 
 ## Author
 

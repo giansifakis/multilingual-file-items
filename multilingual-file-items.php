@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Multilingual File Items
- * Description: Create downloadable file items and display them in a responsive two-column shortcode grid with Polylang language support.
- * Version:     1.0.0
+ * Description: Create file or link items and display them in a responsive two-column shortcode grid with Polylang language support.
+ * Version:     1.1.0
  * Author:      Giannis Sifakis
  * Author URI:  https://www.linkedin.com/in/giannis-sifakis-03b30b240/
  * Text Domain: multilingual-file-items
@@ -16,11 +16,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class MFI_Multilingual_File_Items {
-	const VERSION      = '1.0.0';
-	const POST_TYPE    = 'mfi_file_item';
-	const META_FILE_ID = '_mfi_file_attachment_id';
-	const NONCE_ACTION = 'mfi_save_file_item';
-	const NONCE_NAME   = 'mfi_file_item_nonce';
+	const VERSION          = '1.1.0';
+	const POST_TYPE        = 'mfi_file_item';
+	const META_FILE_ID     = '_mfi_file_attachment_id';
+	const META_SOURCE_TYPE = '_mfi_source_type';
+	const META_CUSTOM_URL  = '_mfi_custom_url';
+	const NONCE_ACTION     = 'mfi_save_file_item';
+	const NONCE_NAME       = 'mfi_file_item_nonce';
 
 	/**
 	 * Bootstrap plugin hooks.
@@ -54,7 +56,7 @@ final class MFI_Multilingual_File_Items {
 	}
 
 	/**
-	 * Register the downloadable item post type.
+	 * Register the item post type.
 	 */
 	public static function register_post_type() {
 		$labels = array(
@@ -124,9 +126,9 @@ final class MFI_Multilingual_File_Items {
 	 */
 	public static function add_meta_boxes() {
 		add_meta_box(
-			'mfi-file-attachment',
-			__( 'Item File', 'multilingual-file-items' ),
-			array( __CLASS__, 'render_file_meta_box' ),
+			'mfi-item-destination',
+			__( 'Item Destination', 'multilingual-file-items' ),
+			array( __CLASS__, 'render_destination_meta_box' ),
 			self::POST_TYPE,
 			'normal',
 			'high'
@@ -143,41 +145,94 @@ final class MFI_Multilingual_File_Items {
 	}
 
 	/**
-	 * Output file selector UI.
+	 * Output the destination selector, media picker, and custom URL field.
 	 *
 	 * @param WP_Post $post Current post.
 	 */
-	public static function render_file_meta_box( $post ) {
-		$file_id   = absint( get_post_meta( $post->ID, self::META_FILE_ID, true ) );
-		$file_url  = $file_id ? wp_get_attachment_url( $file_id ) : '';
-		$file_name = $file_id ? basename( get_attached_file( $file_id ) ?: $file_url ) : '';
+	public static function render_destination_meta_box( $post ) {
+		$file_id    = absint( get_post_meta( $post->ID, self::META_FILE_ID, true ) );
+		$file_url   = $file_id ? wp_get_attachment_url( $file_id ) : '';
+		$file_name  = $file_id ? basename( get_attached_file( $file_id ) ?: $file_url ) : '';
+		$custom_url = (string) get_post_meta( $post->ID, self::META_CUSTOM_URL, true );
+		$source     = (string) get_post_meta( $post->ID, self::META_SOURCE_TYPE, true );
+
+		if ( ! in_array( $source, array( 'file', 'link' ), true ) ) {
+			$source = $custom_url ? 'link' : 'file';
+		}
 
 		wp_nonce_field( self::NONCE_ACTION, self::NONCE_NAME );
 		?>
-		<div class="mfi-file-picker">
-			<input type="hidden" id="mfi-file-attachment-id" name="mfi_file_attachment_id" value="<?php echo esc_attr( $file_id ); ?>">
+		<div class="mfi-destination-picker" data-mfi-destination-picker>
+			<p class="mfi-destination-picker__intro">
+				<?php esc_html_e( 'Choose whether this item opens an uploaded Media Library file or a custom URL.', 'multilingual-file-items' ); ?>
+			</p>
 
-			<div class="mfi-file-picker__selection"<?php echo $file_id ? '' : ' hidden'; ?>>
-				<span class="dashicons dashicons-media-document" aria-hidden="true"></span>
-				<div>
-					<strong class="mfi-file-picker__name"><?php echo esc_html( $file_name ); ?></strong>
-					<a class="mfi-file-picker__url" href="<?php echo esc_url( $file_url ); ?>" target="_blank" rel="noopener noreferrer">
-						<?php esc_html_e( 'Open selected file', 'multilingual-file-items' ); ?>
-					</a>
+			<div class="mfi-source-options" role="radiogroup" aria-label="<?php esc_attr_e( 'Destination type', 'multilingual-file-items' ); ?>">
+				<label class="mfi-source-option">
+					<input type="radio" name="mfi_source_type" value="file" <?php checked( $source, 'file' ); ?>>
+					<span>
+						<strong><?php esc_html_e( 'Uploaded file', 'multilingual-file-items' ); ?></strong>
+						<small><?php esc_html_e( 'Select or upload a file through the WordPress Media Library.', 'multilingual-file-items' ); ?></small>
+					</span>
+				</label>
+
+				<label class="mfi-source-option">
+					<input type="radio" name="mfi_source_type" value="link" <?php checked( $source, 'link' ); ?>>
+					<span>
+						<strong><?php esc_html_e( 'Custom link', 'multilingual-file-items' ); ?></strong>
+						<small><?php esc_html_e( 'Enter an internal or external web address.', 'multilingual-file-items' ); ?></small>
+					</span>
+				</label>
+			</div>
+
+			<div class="mfi-destination-panel" data-mfi-source-panel="file"<?php echo 'file' === $source ? '' : ' hidden'; ?>>
+				<div class="mfi-file-picker">
+					<input type="hidden" id="mfi-file-attachment-id" name="mfi_file_attachment_id" value="<?php echo esc_attr( $file_id ); ?>">
+
+					<div class="mfi-file-picker__selection"<?php echo $file_id ? '' : ' hidden'; ?>>
+						<span class="dashicons dashicons-media-document" aria-hidden="true"></span>
+						<div>
+							<strong class="mfi-file-picker__name"><?php echo esc_html( $file_name ); ?></strong>
+							<a class="mfi-file-picker__url" href="<?php echo esc_url( $file_url ); ?>" target="_blank" rel="noopener noreferrer">
+								<?php esc_html_e( 'Open selected file', 'multilingual-file-items' ); ?>
+							</a>
+						</div>
+					</div>
+
+					<p class="description">
+						<?php esc_html_e( 'Select any file permitted by WordPress, including PDF, Word documents, images, spreadsheets, presentations, and ZIP files.', 'multilingual-file-items' ); ?>
+					</p>
+
+					<p>
+						<button type="button" class="button button-primary mfi-select-file">
+							<?php echo $file_id ? esc_html__( 'Replace File', 'multilingual-file-items' ) : esc_html__( 'Select or Upload File', 'multilingual-file-items' ); ?>
+						</button>
+						<button type="button" class="button-link-delete mfi-remove-file"<?php echo $file_id ? '' : ' hidden'; ?>>
+							<?php esc_html_e( 'Remove file', 'multilingual-file-items' ); ?>
+						</button>
+					</p>
 				</div>
 			</div>
 
-			<p class="description">
-				<?php esc_html_e( 'Select any file available in the WordPress Media Library, including PDF, Word documents, images, spreadsheets, presentations, ZIP files, and other file types permitted by WordPress.', 'multilingual-file-items' ); ?>
-			</p>
+			<div class="mfi-destination-panel" data-mfi-source-panel="link"<?php echo 'link' === $source ? '' : ' hidden'; ?>>
+				<p>
+					<label for="mfi-custom-url"><strong><?php esc_html_e( 'Link URL', 'multilingual-file-items' ); ?></strong></label>
+				</p>
+				<input
+					type="url"
+					class="widefat"
+					id="mfi-custom-url"
+					name="mfi_custom_url"
+					value="<?php echo esc_attr( $custom_url ); ?>"
+					placeholder="https://example.com/resource"
+				>
+				<p class="description">
+					<?php esc_html_e( 'Enter the complete URL, including https://. It may point to a webpage, cloud file, form, video, or another resource.', 'multilingual-file-items' ); ?>
+				</p>
+			</div>
 
-			<p>
-				<button type="button" class="button button-primary mfi-select-file">
-					<?php echo $file_id ? esc_html__( 'Replace File', 'multilingual-file-items' ) : esc_html__( 'Select or Upload File', 'multilingual-file-items' ); ?>
-				</button>
-				<button type="button" class="button-link-delete mfi-remove-file"<?php echo $file_id ? '' : ' hidden'; ?>>
-					<?php esc_html_e( 'Remove file', 'multilingual-file-items' ); ?>
-				</button>
+			<p class="description mfi-destination-picker__note">
+				<?php esc_html_e( 'Only the selected destination type is used on the frontend. Both saved values are retained so you can switch between them later.', 'multilingual-file-items' ); ?>
 			</p>
 		</div>
 		<?php
@@ -204,7 +259,7 @@ final class MFI_Multilingual_File_Items {
 	}
 
 	/**
-	 * Save selected attachment ID.
+	 * Save the selected destination and its values.
 	 *
 	 * @param int $post_id Current post ID.
 	 */
@@ -230,12 +285,22 @@ final class MFI_Multilingual_File_Items {
 			return;
 		}
 
-		$file_id = isset( $_POST['mfi_file_attachment_id'] ) ? absint( $_POST['mfi_file_attachment_id'] ) : 0;
+		$source_type = isset( $_POST['mfi_source_type'] ) ? sanitize_key( wp_unslash( $_POST['mfi_source_type'] ) ) : 'file';
+		$source_type = in_array( $source_type, array( 'file', 'link' ), true ) ? $source_type : 'file';
+		update_post_meta( $post_id, self::META_SOURCE_TYPE, $source_type );
 
+		$file_id = isset( $_POST['mfi_file_attachment_id'] ) ? absint( $_POST['mfi_file_attachment_id'] ) : 0;
 		if ( $file_id && 'attachment' === get_post_type( $file_id ) ) {
 			update_post_meta( $post_id, self::META_FILE_ID, $file_id );
 		} else {
 			delete_post_meta( $post_id, self::META_FILE_ID );
+		}
+
+		$custom_url = isset( $_POST['mfi_custom_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['mfi_custom_url'] ) ), array( 'http', 'https' ) ) : '';
+		if ( $custom_url ) {
+			update_post_meta( $post_id, self::META_CUSTOM_URL, $custom_url );
+		} else {
+			delete_post_meta( $post_id, self::META_CUSTOM_URL );
 		}
 	}
 
@@ -288,7 +353,7 @@ final class MFI_Multilingual_File_Items {
 	}
 
 	/**
-	 * Add image and file columns to the list table.
+	 * Add image and destination columns to the list table.
 	 *
 	 * @param array $columns Existing columns.
 	 * @return array
@@ -304,7 +369,7 @@ final class MFI_Multilingual_File_Items {
 			$new_columns[ $key ] = $label;
 
 			if ( 'title' === $key ) {
-				$new_columns['mfi_file'] = __( 'File', 'multilingual-file-items' );
+				$new_columns['mfi_file'] = __( 'Destination', 'multilingual-file-items' );
 			}
 		}
 
@@ -328,21 +393,25 @@ final class MFI_Multilingual_File_Items {
 		}
 
 		if ( 'mfi_file' === $column ) {
-			$file_id = absint( get_post_meta( $post_id, self::META_FILE_ID, true ) );
-			$file_url = $file_id ? wp_get_attachment_url( $file_id ) : '';
-
-			if ( ! $file_url ) {
+			$destination = self::get_item_destination( $post_id );
+			if ( ! $destination['url'] ) {
 				echo '&mdash;';
 				return;
 			}
 
-			$file_name = basename( get_attached_file( $file_id ) ?: $file_url );
-			echo '<a href="' . esc_url( $file_url ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $file_name ) . '</a>';
+			if ( 'link' === $destination['type'] ) {
+				$host  = wp_parse_url( $destination['url'], PHP_URL_HOST );
+				$label = $host ? $host : __( 'Custom link', 'multilingual-file-items' );
+			} else {
+				$label = basename( get_attached_file( $destination['file_id'] ) ?: $destination['url'] );
+			}
+
+			echo '<a href="' . esc_url( $destination['url'] ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $label ) . '</a>';
 		}
 	}
 
 	/**
-	 * Render the frontend file grid.
+	 * Render the frontend item grid.
 	 *
 	 * Available attributes:
 	 * - limit: Number of items. Default -1 (all).
@@ -387,8 +456,13 @@ final class MFI_Multilingual_File_Items {
 			'update_post_term_cache' => false,
 			'suppress_filters'       => false,
 			'meta_query'             => array(
+				'relation' => 'OR',
 				array(
 					'key'     => self::META_FILE_ID,
+					'compare' => 'EXISTS',
+				),
+				array(
+					'key'     => self::META_CUSTOM_URL,
 					'compare' => 'EXISTS',
 				),
 			),
@@ -438,20 +512,18 @@ final class MFI_Multilingual_File_Items {
 			while ( $query->have_posts() ) :
 				$query->the_post();
 
-				$post_id  = get_the_ID();
-				$file_id  = absint( get_post_meta( $post_id, self::META_FILE_ID, true ) );
-				$file_url = $file_id ? wp_get_attachment_url( $file_id ) : '';
-
-				if ( ! $file_url ) {
+				$post_id     = get_the_ID();
+				$destination = self::get_item_destination( $post_id );
+				if ( ! $destination['url'] ) {
 					continue;
 				}
 
 				$title = get_the_title();
 				?>
 				<article class="mfi-item">
-					<a class="mfi-item__link" href="<?php echo esc_url( $file_url ); ?>" target="_blank" rel="noopener noreferrer">
+					<a class="mfi-item__link" href="<?php echo esc_url( $destination['url'] ); ?>" target="_blank" rel="noopener noreferrer">
 						<span class="mfi-item__image" aria-hidden="true">
-							<?php echo self::get_item_image_html( $post_id, $file_id, $title ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							<?php echo self::get_item_image_html( $post_id, $destination, $title ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 						</span>
 						<span class="mfi-item__title"><?php echo esc_html( $title ); ?></span>
 					</a>
@@ -465,14 +537,66 @@ final class MFI_Multilingual_File_Items {
 	}
 
 	/**
-	 * Build the square item image or a file-type fallback.
+	 * Resolve the active destination for an item, including backward compatibility.
 	 *
-	 * @param int    $post_id Post ID.
-	 * @param int    $file_id Attachment ID.
-	 * @param string $title   Item title.
+	 * @param int $post_id Post ID.
+	 * @return array{type:string,url:string,file_id:int}
+	 */
+	private static function get_item_destination( $post_id ) {
+		$source_type = (string) get_post_meta( $post_id, self::META_SOURCE_TYPE, true );
+		$file_id     = absint( get_post_meta( $post_id, self::META_FILE_ID, true ) );
+		$file_url    = $file_id ? wp_get_attachment_url( $file_id ) : '';
+		$custom_url  = esc_url_raw( (string) get_post_meta( $post_id, self::META_CUSTOM_URL, true ), array( 'http', 'https' ) );
+
+		if ( 'link' === $source_type ) {
+			return array(
+				'type'    => 'link',
+				'url'     => $custom_url,
+				'file_id' => 0,
+			);
+		}
+
+		if ( 'file' === $source_type ) {
+			return array(
+				'type'    => 'file',
+				'url'     => $file_url ? $file_url : '',
+				'file_id' => $file_url ? $file_id : 0,
+			);
+		}
+
+		// Backward compatibility for items created before destination types existed.
+		if ( $file_url ) {
+			return array(
+				'type'    => 'file',
+				'url'     => $file_url,
+				'file_id' => $file_id,
+			);
+		}
+
+		if ( $custom_url ) {
+			return array(
+				'type'    => 'link',
+				'url'     => $custom_url,
+				'file_id' => 0,
+			);
+		}
+
+		return array(
+			'type'    => '',
+			'url'     => '',
+			'file_id' => 0,
+		);
+	}
+
+	/**
+	 * Build the square item image or a destination-type fallback.
+	 *
+	 * @param int    $post_id    Post ID.
+	 * @param array  $destination Resolved destination.
+	 * @param string $title       Item title.
 	 * @return string
 	 */
-	private static function get_item_image_html( $post_id, $file_id, $title ) {
+	private static function get_item_image_html( $post_id, $destination, $title ) {
 		$image_attributes = array(
 			'class'   => 'mfi-item__img',
 			'loading' => 'lazy',
@@ -483,16 +607,35 @@ final class MFI_Multilingual_File_Items {
 			return get_the_post_thumbnail( $post_id, 'mfi-square', $image_attributes );
 		}
 
-		if ( wp_attachment_is_image( $file_id ) ) {
-			return wp_get_attachment_image( $file_id, 'mfi-square', false, $image_attributes );
+		if ( ! empty( $destination['file_id'] ) && wp_attachment_is_image( $destination['file_id'] ) ) {
+			return wp_get_attachment_image( $destination['file_id'], 'mfi-square', false, $image_attributes );
 		}
 
-		$file_path = get_attached_file( $file_id );
-		$file_url  = wp_get_attachment_url( $file_id );
-		$extension = pathinfo( $file_path ?: $file_url, PATHINFO_EXTENSION );
-		$extension = $extension ? strtoupper( sanitize_text_field( $extension ) ) : __( 'FILE', 'multilingual-file-items' );
+		$extension = self::get_url_extension( $destination['url'] );
+		if ( 'link' === $destination['type'] && in_array( strtolower( $extension ), array( 'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif' ), true ) ) {
+			return '<img class="mfi-item__img" src="' . esc_url( $destination['url'] ) . '" alt="' . esc_attr( $title ) . '" loading="lazy">';
+		}
 
-		return '<span class="mfi-item__fallback"><span class="dashicons dashicons-media-document" aria-hidden="true"></span><span class="mfi-item__extension">' . esc_html( $extension ) . '</span></span>';
+		if ( ! $extension && ! empty( $destination['file_id'] ) ) {
+			$file_path = get_attached_file( $destination['file_id'] );
+			$extension = pathinfo( (string) $file_path, PATHINFO_EXTENSION );
+		}
+
+		$fallback_label = $extension ? strtoupper( sanitize_text_field( $extension ) ) : ( 'link' === $destination['type'] ? __( 'LINK', 'multilingual-file-items' ) : __( 'FILE', 'multilingual-file-items' ) );
+		$icon_class     = 'link' === $destination['type'] ? 'dashicons-admin-links' : 'dashicons-media-document';
+
+		return '<span class="mfi-item__fallback"><span class="dashicons ' . esc_attr( $icon_class ) . '" aria-hidden="true"></span><span class="mfi-item__extension">' . esc_html( $fallback_label ) . '</span></span>';
+	}
+
+	/**
+	 * Extract a lowercase extension from a URL path.
+	 *
+	 * @param string $url URL.
+	 * @return string
+	 */
+	private static function get_url_extension( $url ) {
+		$path = wp_parse_url( $url, PHP_URL_PATH );
+		return $path ? strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) : '';
 	}
 
 	/**
