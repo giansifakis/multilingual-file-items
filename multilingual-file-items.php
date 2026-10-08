@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Multilingual File Items
  * Description: Create file or link items and display them in a responsive two-column shortcode grid with Polylang language support.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Author:      Giannis Sifakis
  * Author URI:  https://www.linkedin.com/in/giannis-sifakis-03b30b240/
  * Text Domain: multilingual-file-items
@@ -16,11 +16,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class MFI_Multilingual_File_Items {
-	const VERSION          = '1.1.0';
+	const VERSION          = '1.2.0';
 	const POST_TYPE        = 'mfi_file_item';
 	const META_FILE_ID     = '_mfi_file_attachment_id';
 	const META_SOURCE_TYPE = '_mfi_source_type';
 	const META_CUSTOM_URL  = '_mfi_custom_url';
+	const META_CLICK_COUNT = '_mfi_click_count';
 	const NONCE_ACTION     = 'mfi_save_file_item';
 	const NONCE_NAME       = 'mfi_file_item_nonce';
 
@@ -40,6 +41,10 @@ final class MFI_Multilingual_File_Items {
 
 		add_filter( 'manage_' . self::POST_TYPE . '_posts_columns', array( __CLASS__, 'add_admin_columns' ) );
 		add_action( 'manage_' . self::POST_TYPE . '_posts_custom_column', array( __CLASS__, 'render_admin_columns' ), 10, 2 );
+
+		// Track public clicks server-side before forwarding to the saved destination.
+		add_action( 'admin_post_mfi_open_item', array( __CLASS__, 'handle_item_click' ) );
+		add_action( 'admin_post_nopriv_mfi_open_item', array( __CLASS__, 'handle_item_click' ) );
 
 		add_shortcode( 'file_items', array( __CLASS__, 'render_shortcode' ) );
 	}
@@ -142,6 +147,33 @@ final class MFI_Multilingual_File_Items {
 			'side',
 			'default'
 		);
+
+		add_meta_box(
+			'mfi-click-statistics',
+			__( 'Download / Link Clicks', 'multilingual-file-items' ),
+			array( __CLASS__, 'render_click_statistics_meta_box' ),
+			self::POST_TYPE,
+			'side',
+			'default'
+		);
+	}
+
+	/**
+	 * Show the click total in the item editor. Counts are never shown publicly.
+	 *
+	 * @param WP_Post $post Current item.
+	 */
+	public static function render_click_statistics_meta_box( $post ) {
+		$count = self::get_click_count( $post->ID );
+		?>
+		<div class="mfi-click-stat">
+			<div class="mfi-click-stat__count"><?php echo esc_html( number_format_i18n( $count ) ); ?></div>
+			<p class="mfi-click-stat__label"><?php esc_html_e( 'Total item clicks', 'multilingual-file-items' ); ?></p>
+			<p class="description">
+				<?php esc_html_e( 'Counts clicks from the public file-items grid, including file-open/download attempts and custom-link visits. It does not verify that a file finished downloading.', 'multilingual-file-items' ); ?>
+			</p>
+		</div>
+		<?php
 	}
 
 	/**
@@ -370,6 +402,7 @@ final class MFI_Multilingual_File_Items {
 
 			if ( 'title' === $key ) {
 				$new_columns['mfi_file'] = __( 'Destination', 'multilingual-file-items' );
+				$new_columns['mfi_clicks'] = __( 'Clicks', 'multilingual-file-items' );
 			}
 		}
 
@@ -383,6 +416,11 @@ final class MFI_Multilingual_File_Items {
 	 * @param int    $post_id Post ID.
 	 */
 	public static function render_admin_columns( $column, $post_id ) {
+		if ( 'mfi_clicks' === $column ) {
+			echo esc_html( number_format_i18n( self::get_click_count( $post_id ) ) );
+			return;
+		}
+
 		if ( 'mfi_image' === $column ) {
 			if ( has_post_thumbnail( $post_id ) ) {
 				echo get_the_post_thumbnail( $post_id, array( 60, 60 ), array( 'class' => 'mfi-admin-thumb' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -408,6 +446,89 @@ final class MFI_Multilingual_File_Items {
 
 			echo '<a href="' . esc_url( $destination['url'] ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $label ) . '</a>';
 		}
+	}
+
+	/**
+	 * Read the lifetime number of tracked clicks for one item.
+	 *
+	 * @param int $post_id Item ID.
+	 * @return int
+	 */
+	private static function get_click_count( $post_id ) {
+		return absint( get_post_meta( $post_id, self::META_CLICK_COUNT, true ) );
+	}
+
+	/**
+	 * Return the public tracking link. The actual destination never comes from
+	 * query arguments; it is always re-read from the published item on click.
+	 *
+	 * @param int $post_id Item ID.
+	 * @return string
+	 */
+	private static function get_tracking_url( $post_id ) {
+		return add_query_arg(
+			array(
+				'action'  => 'mfi_open_item',
+				'item_id' => absint( $post_id ),
+			),
+			admin_url( 'admin-post.php' )
+		);
+	}
+
+	/**
+	 * Record a click and redirect to the item destination (file or HTTP link).
+	 * This is deliberately public: visitors do not need a WordPress account.
+	 */
+	public static function handle_item_click() {
+		$post_id = isset( $_GET['item_id'] ) && is_scalar( $_GET['item_id'] )
+			? absint( wp_unslash( $_GET['item_id'] ) )
+			: 0;
+
+		if ( ! $post_id || self::POST_TYPE !== get_post_type( $post_id ) || 'publish' !== get_post_status( $post_id ) ) {
+			self::invalid_click_request();
+		}
+
+		$destination = self::get_item_destination( $post_id );
+		$url         = esc_url_raw( $destination['url'], array( 'http', 'https' ) );
+		$scheme      = strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
+
+		if ( ! $url || ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+			self::invalid_click_request();
+		}
+
+		// Add the meta once, then increment it atomically to avoid lost clicks
+		// when multiple visitors use the same item at nearly the same time.
+		add_post_meta( $post_id, self::META_CLICK_COUNT, 0, true );
+
+		global $wpdb;
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->postmeta} SET meta_value = CAST(meta_value AS UNSIGNED) + 1 WHERE post_id = %d AND meta_key = %s",
+				$post_id,
+				self::META_CLICK_COUNT
+			)
+		);
+
+		// A direct SQL update must invalidate WordPress's cached post metadata.
+		wp_cache_delete( $post_id, 'post_meta' );
+		nocache_headers();
+		header( 'X-Robots-Tag: noindex, nofollow', true );
+
+		// External destinations are supported by design. The URL is resolved
+		// exclusively from a saved WordPress item, not from user input.
+		wp_redirect( $url, 302, 'Multilingual File Items' ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect
+		exit;
+	}
+
+	/**
+	 * Reject invalid, unpublished, or destination-less items.
+	 */
+	private static function invalid_click_request() {
+		wp_die(
+			esc_html__( 'This file item is unavailable.', 'multilingual-file-items' ),
+			esc_html__( 'File item unavailable', 'multilingual-file-items' ),
+			array( 'response' => 404 )
+		);
 	}
 
 	/**
@@ -518,10 +639,11 @@ final class MFI_Multilingual_File_Items {
 					continue;
 				}
 
-				$title = get_the_title();
+				$title        = get_the_title();
+				$tracking_url = self::get_tracking_url( $post_id );
 				?>
 				<article class="mfi-item">
-					<a class="mfi-item__link" href="<?php echo esc_url( $destination['url'] ); ?>" target="_blank" rel="noopener noreferrer">
+					<a class="mfi-item__link" href="<?php echo esc_url( $tracking_url ); ?>" target="_blank" rel="noopener noreferrer nofollow">
 						<span class="mfi-item__image" aria-hidden="true">
 							<?php echo self::get_item_image_html( $post_id, $destination, $title ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 						</span>

@@ -3,7 +3,7 @@ Contributors: giannissifakis
 Tags: files, links, downloads, shortcode, polylang, multilingual, divi
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,6 +18,7 @@ Multilingual File Items adds a dedicated File Items content type to WordPress. E
 * Either a file selected from the WordPress Media Library or a custom HTTP/HTTPS link
 * A manual order value
 * A Polylang language and translation relationship when Polylang is active
+* A private click counter, visible in the WordPress admin list and each item editor
 
 Use `[file_items]` in the WordPress editor, a Divi Text module, or a Divi Code module. The grid displays two items per row on desktop and one item per row on mobile. Clicking an item opens its selected destination in a new browser tab.
 
@@ -36,6 +37,16 @@ Use `[file_items]` in the WordPress editor, a Divi Text module, or a Divi Code m
 When Polylang is active, File Items are registered as translatable. Assign each item a language and connect its translations through the standard Polylang language panel. The shortcode automatically shows items in the current page language.
 
 Each translation may use its own uploaded file or custom URL.
+
+Each translation also has its own click total.
+
+== Click Counter ==
+
+From version 1.2.0 onward, the plugin records clicks on links rendered by the [file_items] shortcode. Visitors see the original frontend design and are forwarded to the saved file or URL. The count is available only to editors in the File Items list (Clicks column) and the item edit screen (Download / Link Clicks box).
+
+File clicks represent file-open/download attempts; link clicks represent visits to saved URLs. They do not confirm completed downloads. Only public shortcode clicks are tracked, not direct access to Media Library URLs or admin preview links. Previously made clicks are not counted retroactively.
+
+After updating, clear WordPress and CDN/page caches so the new tracking URLs appear in the public shortcode. No database migration is necessary.
 
 == Shortcode ==
 
@@ -86,6 +97,11 @@ If the uploaded file or direct custom URL is an image, the plugin can use that i
 Edit an item and use the Order field in the Page Attributes panel. Items with lower numbers appear first.
 
 == Changelog ==
+
+= 1.2.0 =
+* Added server-side click tracking for uploaded files and custom links.
+* Added admin-only Clicks column and item statistics box.
+* Preserved existing items, frontend appearance, and Polylang compatibility.
 
 = 1.1.0 =
 * Added Uploaded file and Custom link destination choices.

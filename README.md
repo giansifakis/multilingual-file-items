@@ -21,6 +21,8 @@ Items appear two per row on desktop and one per row on mobile. Clicking an item 
 - Responsive two-column grid
 - One-column mobile layout
 - Destinations open in a new tab
+- Server-side click counter for uploaded files and custom links
+- Private click totals in the WordPress File Items list and each item's edit screen
 - Manual item ordering
 - Divi-compatible shortcode
 - Polylang custom post type integration
@@ -44,7 +46,9 @@ Polylang is optional. Without it, the plugin works as a standard single-language
 4. Activate **Multilingual File Items**.
 5. A new **File Items** section will appear in the WordPress dashboard.
 
-Existing items created with version 1.0.0 remain compatible and continue using their uploaded files.
+Existing items created with versions 1.0.0 and 1.1.0 remain compatible, retaining their destinations and images. Click totals start at zero when tracking is installed; older clicks cannot be recovered.
+
+When upgrading an existing installation, replace the current plugin files or choose the WordPress **Replace current with uploaded** option for the *same plugin folder*. Check the existing folder name first if you originally installed a GitHub-generated ZIP. Clear any site/page cache after the upgrade so visitors receive the new tracked links.
 
 ## Creating an Item
 
@@ -59,6 +63,23 @@ Existing items created with version 1.0.0 remain compatible and continue using t
 7. Publish the item.
 
 The plugin retains both the uploaded-file selection and custom URL when you switch destination types. Only the currently selected destination type is displayed on the frontend.
+
+## Private Download / Link Click Counter
+
+Version 1.2.0 tracks clicks on the items rendered by `[file_items]` without displaying counters on the public website.
+
+- **File Items → All File Items:** a new **Clicks** column shows the lifetime count for each item.
+- **File Items → Edit Item:** the **Download / Link Clicks** sidebar box shows the item's total clicks.
+- **Uploaded files:** opening the item counts as one file-open/download click.
+- **Custom links:** opening the item counts as one link click, even if it goes to another website.
+- Each Polylang translation has its own counter because it is a separate WordPress item.
+- Editing a file or changing its destination preserves the item's historical count.
+
+The plugin uses a WordPress `admin-post.php` redirect to count the click on the server, then sends the visitor to the current saved destination. No JavaScript, tracking cookie, analytics service, user identity, or custom database table is required. The public grid looks the same and links still open in a new tab.
+
+**What is counted:** an attempted visit/download when a visitor follows the tracked link. These are *not* guaranteed completed file downloads. Direct visits to the raw Media Library URL, clicks on URLs outside `[file_items]`, and interactions before installing version 1.2.0 are not included. Some automated link scanners or bots may also follow links, so totals are indicative rather than audited analytics figures. Tracking only runs when the redirect endpoint is reached.
+
+The admin preview/open-file link and the destination link in the File Items list continue to use their original destination directly, so opening those administrative links does **not** increment the public click counter.
 
 ## Basic Shortcode
 
@@ -225,9 +246,11 @@ Add custom overrides to the Divi Theme Options custom CSS field, the child theme
 
 - File attachment IDs are validated before saving.
 - Custom links are sanitized and restricted to HTTP and HTTPS protocols.
+- The click redirect fetches the destination from the published item and never accepts a destination URL from the request.
+- Clicks are recorded using an atomic SQL increment of the item's WordPress post meta (no separate database table).
 - Administrative changes use WordPress nonces and capability checks.
 - Frontend URLs and output are escaped.
-- Links use `noopener noreferrer` and open in a new tab.
+- Links use `noopener noreferrer nofollow` and open in a new tab.
 - Frontend CSS is loaded only when the shortcode returns items.
 - The frontend query disables unnecessary pagination and term-cache work.
 
@@ -247,6 +270,13 @@ multilingual-file-items/
 ```
 
 ## Changelog
+
+### 1.2.0
+
+- Added server-side click tracking for file downloads/opens and custom-link visits.
+- Added private Clicks column to the WordPress File Items list.
+- Added Download / Link Clicks statistics box to the item editor.
+- Kept frontend appearance, destination behavior, and Polylang compatibility unchanged.
 
 ### 1.1.0
 

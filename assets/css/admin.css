@@ -54,6 +54,28 @@
     width: 28%;
 }
 
+.column-mfi_clicks {
+    width: 84px;
+    text-align: center;
+}
+
+.mfi-click-stat__count {
+    padding-top: 8px;
+    color: #1d2327;
+    font-size: 34px;
+    font-weight: 650;
+    line-height: 1.1;
+}
+
+.mfi-click-stat__label {
+    margin: 6px 0 14px;
+    font-weight: 600;
+}
+
+.mfi-click-stat .description {
+    margin-bottom: 4px;
+}
+
 .mfi-admin-thumb {
     display: block;
     width: 48px;
